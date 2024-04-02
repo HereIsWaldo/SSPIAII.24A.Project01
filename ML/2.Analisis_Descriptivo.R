@@ -1,5 +1,3 @@
-source("1.Preprocesamiento.R")
-
 
 #2. Analisis Descriptivo
 #Se utiliza esta grafica para evaluar los datos atipicos

@@ -3,7 +3,7 @@
 # Variable objetivo para la clasificación: detalle_tipo_deuda
 y <- df.deuda$tasa_final
 
-df.deuda$anio <- NULL
+
 
 Split<- sample.split(df.deuda$tasa_final, SplitRatio = 0.8)
 df.deuda.Train <- subset(df.deuda, Split == T)

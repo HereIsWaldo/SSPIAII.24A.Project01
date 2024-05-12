@@ -4,7 +4,7 @@
 #Diego Hernández Cárdenas
 #Cesar Emmanuel Dillon Gonzalez 
 source("Lib.Preprocess.R")
-
+setwd("C:/Users/uliss/OneDrive/Documentos/UdG/SSP IA II/R/SSPIAII.24A.Project01/ML")
 set.seed(1991)
 options(scipen = 999)
 

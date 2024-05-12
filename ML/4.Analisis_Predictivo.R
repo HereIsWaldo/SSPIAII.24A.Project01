@@ -114,3 +114,33 @@ title = "Grafico de dispersion para el modelo")
 # plot(roc_auc, average = "macro", main = "Curva ROC Multiclase")
 # ##Area por debajo de la curva multi-class de ROC
 # auc(roc_auc)
+
+
+
+# Definir los puntos de corte para las 4 clases
+puntos_corte <- c(-Inf, 0.25, 0.5, 0.75, Inf)
+
+# Etiquetas de clase
+etiquetas_clase <- c("Clase_1", "Clase_2", "Clase_3", "Clase_4")
+
+# Discretizar los valores y asignar clases
+predicciones_clase <- cut(predicciones_stacking, breaks = puntos_corte, labels = etiquetas_clase)
+
+
+
+#K fold
+train_control <- trainControl(method="cv", number=10)
+variablesPredictoras <- data.frame(
+  disposicion = df.deuda$disposicion_inicial_credito,
+  dias = df.deuda$dias_restantes_contrato,
+  intereses = df.deuda$intereses_periodo
+)
+model <- train(
+    x = variablesPredictoras ,
+    y = df.deuda$dias_restantes_contrato,
+    method = "glm",
+    trControl = train_control
+)
+
+print(model)
+model$results

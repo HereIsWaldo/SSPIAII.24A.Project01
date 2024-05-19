@@ -129,16 +129,17 @@ predicciones_clase <- cut(predicciones_stacking, breaks = puntos_corte, labels =
 
 
 #K fold clasificacion
-train_control <- trainControl(method="cv", number=9)
+train_control <- trainControl(method="cv", number=10)
 variablesPredictoras <- data.frame(
   disposicion = df.deuda$disposicion_inicial_credito,
-  dias = df.deuda$dias_restantes_contrato,
-  intereses = df.deuda$intereses_periodo
+  intereses = df.deuda$intereses_periodo,
+  dias_restantes = df.deuda$dias_restantes_contrato,
 )
 model <- train(
     x = variablesPredictoras ,
-    y = df.deuda$dias_restantes_contrato,
+    y = df.deuda$detalle_tipo_deuda,
     method = "glm",
+    family = "binomial",
     trControl = train_control
 )
 

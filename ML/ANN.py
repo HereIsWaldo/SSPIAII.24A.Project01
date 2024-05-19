@@ -1,170 +1,131 @@
-# p2.2.ANN.Keras
-import tensorflow as tf
-# print(tf.__version__)
+# Isaac Ulises Ascencio Padilla
 
+import tensorflow as tf
 import pandas as pd
+import numpy as np
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-df_deuda = pd.read_csv('Datasets/deuda_publica_2023_04.csv')
+# Leer el dataset
+df_deuda = pd.read_csv('datasets/deuda_publica_2023_04.csv')
 
-X = df_deuda.iloc[:,3:13].values
-Y = df_deuda.iloc[:,13].values
+# Eliminar columnas no necesarias
+df_deuda = df_deuda.drop(columns=['no_registro', 'inicio_credito', 'fin_credito', 'detalle_tipo_deuda', 'trimestre', 'mes', 'tipo_deuda', 'concepto'])
 
+# Eliminar filas con valores 'NA'
+df_deuda.dropna(inplace=True)
 
-# Preprocesamiento
-# Dummies
-X[:,1] = LabelEncoder().fit_transform(X[:,1])
-X[:,2] = LabelEncoder().fit_transform(X[:,2])
+# Función para reemplazar 'TIIE' y calcular tasa final
+def reemplazar_tiie(tasa, valor_tiie=8.0):
+    try:
+        if pd.isna(tasa):
+            return np.nan
+        if isinstance(tasa, str):
+            tasa = tasa.strip()  # Eliminar espacios en blanco alrededor
+            if 'TIIE' in tasa:
+                if '+' in tasa:
+                    return valor_tiie + float(tasa.split('+')[1])
+                elif '-' in tasa:
+                    return valor_tiie - float(tasa.split('-')[1])
+                else:
+                    return valor_tiie
+            else:
+                return float(tasa)
+        return tasa
+    except ValueError:
+        return np.nan
 
-one = ColumnTransformer(
-    [('one_hot_encoder', OneHotEncoder(categories='auto'),[1])], 
-    remainder='passthrough'
-    )
+# Aplicar la función a las columnas de tasa
+df_deuda['tasa'] = df_deuda['tasa'].apply(reemplazar_tiie)
+df_deuda['tasa_final'] = df_deuda['tasa_final'].apply(reemplazar_tiie)
 
-X = one.fit_transform(X)
-X = X[:,1:]
+# Convertir las tasas y sobretasa a tipo numérico
+df_deuda['tasa'] = pd.to_numeric(df_deuda['tasa'], errors='coerce')
+df_deuda['sobretasa'] = pd.to_numeric(df_deuda['sobretasa'], errors='coerce')
+df_deuda['tasa_final'] = pd.to_numeric(df_deuda['tasa_final'], errors='coerce')
 
-# Escalado
-X = StandardScaler().fit_transform(X)
+# Eliminar filas resultantes con valores faltantes después de la conversión
+df_deuda.dropna(inplace=True)
 
-# Split
+# Revisar el rango de las características y la variable objetivo
+print(df_deuda.describe())
+
+# Normalizar la variable objetivo
+scaler_y = StandardScaler()
+df_deuda['saldo_periodo'] = scaler_y.fit_transform(df_deuda[['saldo_periodo']])
+
+# Separar las características y la variable objetivo
+X = df_deuda.drop(columns=['saldo_periodo'])
+Y = df_deuda['saldo_periodo']
+
+# Convertir variables categóricas en variables dummy (One-Hot Encoding)
+categorical_columns = ['acreedor']
+X = pd.get_dummies(X, columns=categorical_columns, drop_first=True)
+
+# Escalado de las características
+scaler = StandardScaler()
+X = scaler.fit_transform(X)
+
+# Dividir el dataset en conjunto de entrenamiento y prueba
 X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=14)
 
-
-# Modelo ANN
+# Construir el modelo ANN
 from keras.models import Sequential
 from keras.layers import Dense
 
 ann = Sequential()
 
 # Capa de entrada
-ann.add(
-    Dense(units = 12, kernel_initializer='uniform', input_dim = 11)
-)
+ann.add(Dense(units=12, kernel_initializer='uniform', input_dim=X_train.shape[1]))
 
 # Capas ocultas
-ann.add(
-    Dense(units = 8, activation="relu", kernel_initializer='uniform')
-)
-
-ann.add(
-    Dense(units = 4, activation="tanh", kernel_initializer='uniform')
-)
+ann.add(Dense(units=8, activation="relu", kernel_initializer='uniform'))
+ann.add(Dense(units=4, activation="tanh", kernel_initializer='uniform'))
 
 # Capa de salida
-ann.add(
-    Dense(units = 1, activation='sigmoid', kernel_initializer = "uniform")
-)
+ann.add(Dense(units=1, activation='linear', kernel_initializer='uniform'))
 
+# Compilar el modelo
+ann.compile(optimizer='adam', loss='mean_squared_error')
 
-# Entrenador
-ann.compile(optimizer = 'adam', loss = 'binary_crossentropy', metrics=['accuracy'])
-
-print(X_train.shape)
-
-ann.fit(X_train, Y_train, epochs = 50, batch_size= 50)
-
+# Entrenar el modelo
+ann.fit(X_train, Y_train, epochs=50, batch_size=50)
 
 # Guardar el modelo
-from keras.models import load_model
-ann.save('ann.h5')
+ann.save('annPro.h5')
 
-modelo = load_model('ann.h5')
+# Imprimir la forma del conjunto de entrenamiento para verificar
+print(X_train.shape)
 
-from sklearn.metrics import confusion_matrix
-Y_pred = modelo.predict(X_test)
-Y_pred = (Y_pred > 0.5)
+# Predecir con el conjunto de prueba
+Y_pred = ann.predict(X_test)
 
-cm = confusion_matrix(Y_test, Y_pred)
-print(cm)
+# Calcular métricas de evaluación
+mae = mean_absolute_error(Y_test, Y_pred)
+mse = mean_squared_error(Y_test, Y_pred)
+r2 = r2_score(Y_test, Y_pred)
 
-# Visualizar la arquitectura de la red neuronal
-from keras.utils import plot_model
-plot_model(modelo,to_file='model.png',show_shapes=True,show_layer_activations=True,show_layer_names=True) 
+# Calcular el número de características y el tamaño de la muestra
+num_features = X_test.shape[1]
+sample_size = X_test.shape[0]
 
+# Calcular R² ajustado
+adj_r2 = 1 - (1 - r2) * ((sample_size - 1) / (sample_size - num_features - 1))
 
-import matplotlib.pyplot as plt
-from sklearn.datasets import make_classification
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_curve, auc
-from sklearn.model_selection import train_test_split
-
-# 1. Generar datos de ejemplo (puedes reemplazar esto con tus propios datos)
-X, y = make_classification(n_samples=1000, n_features=20, n_classes=2, random_state=42)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
-
-# 2. Entrenar un modelo de clasificación (puedes reemplazar con tu modelo)
-model = LogisticRegression()
-model.fit(X_train, y_train)
-
-# 3. Obtener las probabilidades predichas para la clase positiva
-y_pred_probabilidad = model.predict_proba(X_test)[:, 1]
-
-# 4. Calcular la curva ROC
-fpr, tpr, thresholds = roc_curve(y_test, y_pred_probabilidad)
-
-# 5. Calcular el AUC (Area Under the Curve)
-roc_auc = auc(fpr, tpr)
-
-# 6. Graficar la curva ROC
-plt.plot(fpr, tpr, color='darkorange', label='ROC curve (area = %0.2f)' % roc_auc)
-plt.plot([0, 1], [0, 1], color='navy', linestyle='--')
-plt.xlim([0.0, 1.0])
-plt.ylim([0.0, 1.05])
-plt.xlabel('False Positive Rate')
-plt.ylabel('True Positive Rate')
-plt.title('Receiver Operating Characteristic (ROC) Curve')
-plt.legend(loc="lower right")
-plt.show()
+print(f"Mean Absolute Error: {mae}")
+print(f"Mean Squared Error: {mse}")
+print(f"R-squared: {r2}")
+print(f"Adjusted R-squared: {adj_r2}")
 
 
-# Parte 2
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras.layers import Dense, Dropout
-from sklearn.datasets import make_classification
-from sklearn.model_selection import train_test_split
 
-# 1. Generar datos de ejemplo (puedes reemplazar esto con tus propios datos)
-X, y = make_classification(n_samples=1000, n_features=20, n_classes=2, random_state=42)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
+# modelo = load_model('annPro.h5')
 
-# 2. Definir el modelo
-model = keras.Sequential([
-    Dense(32, activation='relu', input_shape=(X_train.shape[1],)),
-    Dense(16, activation='relu'),
-    Dropout(0.2),
-    Dense(1, activation='sigmoid')
-])
 
-# 3. Compilar el modelo
-model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+# # Visualizar la arquitectura de la red neuronal
+# from keras.utils import plot_model
+# plot_model(modelo,to_file='model.png',show_shapes=True,show_layer_activations=True,show_layer_names=True) 
 
-# 4. Entrenar el modelo
-model.fit(X_train, y_train, epochs=10, batch_size=32)
-
-# 5. Evaluar el modelo
-_, accuracy = model.evaluate(X_test, y_test)
-print('Accuracy: %.2f' % (accuracy*100))
-
-# Gráfica
-#  Predecir probabilidades en el conjunto de prueba
-y_pred_proba = model.predict(X_test)[:, 0]  # Probabilidades para la clase positiva
-
-# 6. Calcular FPR, TPR y umbrales
-fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
-
-# 7. Calcular AUC
-auc_score = auc(fpr, tpr)
-
-# Graficar la curva ROC
-plt.plot(fpr, tpr, label='ROC curve (area = %0.2f)' % auc_score)
-plt.plot([0, 1], [0, 1], 'k--')  # Línea diagonal para modelo aleatorio
-plt.xlabel('False Positive Rate')
-plt.ylabel('True Positive Rate')
-plt.title('Receiver Operating Characteristic (ROC) Curve')
-plt.legend()
-plt.show()
 

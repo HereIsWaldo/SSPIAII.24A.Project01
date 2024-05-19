@@ -133,14 +133,14 @@ train_control <- trainControl(method="cv", number=10)
 variablesPredictoras <- data.frame(
   disposicion = df.deuda$disposicion_inicial_credito,
   intereses = df.deuda$intereses_periodo,
-  dias_restantes = df.deuda$dias_restantes_contrato,
+  dias_restantes = df.deuda$dias_restantes_contrato
 )
 model <- train(
     x = variablesPredictoras ,
     y = df.deuda$detalle_tipo_deuda,
-    method = "glm",
-    family = "binomial",
-    trControl = train_control
+    method = "multinom",
+    trControl = train_control,
+    family = "multinomial"
 )
 
 print(model)
@@ -161,18 +161,22 @@ if (length(tasafinal_levels) == 0) {
 } 
 df.deuda$tasafinal <- factor(df.deuda$tasafinal, levels = tasafinal_levels)
 
-train_control_regresion <- trainControl(method="cv", number=9)
+train_control_regresion <- trainControl(method="cv", number=10)
 variablesPredictoras_regresion <- data.frame(
     tasa = df.deuda$tasa,
     sobretasa = df.deuda$sobretasa,
-    tasafinal = df.deuda$tasafinal 
+    tasafinal = df.deuda$tasa_final,
+    endeudamientoperiodo = df.deuda$endeudamiento_periodo,
+    amortizaciones_periodo = df.deuda$amortizaciones_periodo,
+    disposicion_inicial_credito = df.deuda$disposicion_inicial_credito
 )
 
 model_regresion <- train(
     x = variablesPredictoras_regresion ,
     y = df.deuda$saldo_periodo,
     method = "glm",
-    trControl = train_control_regresion
+    trControl = train_control_regresion,
+    family = "gaussian"
 )
 
 print(model_regresion)

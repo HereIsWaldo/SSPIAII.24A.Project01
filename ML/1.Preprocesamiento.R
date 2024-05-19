@@ -17,7 +17,7 @@ df.deuda <-read.csv("Datasets/deuda_publica_2023_04.csv",header = T, stringsAsFa
 #inicio y fin de credito tienen valores incorrectos
 #tipo_deuda tiene un solo valor
 #tasa y sobretasa tienen muchos NA, y la tasa_final es una combinacion de ambas variables
-df.deuda <- subset(df.deuda, select = -c(tipo_deuda,no_registro,inicio_credito,fin_credito,sobretasa,tasa))
+df.deuda <- subset(df.deuda, select = -c(tipo_deuda,no_registro,inicio_credito,fin_credito))
 
 
 #PARA UTILIZAR LA VARIABLE DETALLE_TIPO_DEUDA COMO VARIABLE DE CLASIFICACIÓN!!

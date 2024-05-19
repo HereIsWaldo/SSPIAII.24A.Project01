@@ -128,8 +128,8 @@ predicciones_clase <- cut(predicciones_stacking, breaks = puntos_corte, labels =
 
 
 
-#K fold
-train_control <- trainControl(method="cv", number=10)
+#K fold clasificacion
+train_control <- trainControl(method="cv", number=9)
 variablesPredictoras <- data.frame(
   disposicion = df.deuda$disposicion_inicial_credito,
   dias = df.deuda$dias_restantes_contrato,
@@ -143,4 +143,36 @@ model <- train(
 )
 
 print(model)
+model$results
+
+#K fold Regresion
+df.deuda$tasa <- as.numeric(df.deuda$tasa)
+df.deuda$sobretasa <- as.numeric(df.deuda$sobretasa)
+
+# Define los niveles de tasafinal correctamente
+df.deuda$tasa <- as.numeric(df.deuda$tasa)
+df.deuda$sobretasa <- as.numeric(df.deuda$sobretasa)
+
+# Define los niveles de tasafinal correctamente
+tasafinal_levels <- unique(df.deuda$tasafinal)
+if (length(tasafinal_levels) == 0) {
+  tasafinal_levels <- c("default_level")
+} 
+df.deuda$tasafinal <- factor(df.deuda$tasafinal, levels = tasafinal_levels)
+
+train_control_regresion <- trainControl(method="cv", number=9)
+variablesPredictoras_regresion <- data.frame(
+    tasa = df.deuda$tasa,
+    sobretasa = df.deuda$sobretasa,
+    tasafinal = df.deuda$tasafinal 
+)
+
+model_regresion <- train(
+    x = variablesPredictoras_regresion ,
+    y = df.deuda$saldo_periodo,
+    method = "glm",
+    trControl = train_control_regresion
+)
+
+print(model_regresion)
 model$results
